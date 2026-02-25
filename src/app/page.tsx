@@ -59,7 +59,7 @@ export default function Home() {
          Task Manager
       </h1>
 
-      {/* Form */}
+      
       <div className="flex flex-wrap justify-center gap-4 mb-10">
         <input
           placeholder="Title"
@@ -95,7 +95,7 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Task Cards */}
+      
       <div className="max-w-2xl mx-auto space-y-6">
         {tasks?.map((task) => (
           <div
