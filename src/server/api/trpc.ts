@@ -1,17 +1,43 @@
 import { initTRPC } from "@trpc/server";
 import superjson from "superjson";
-import { db } from "~/server/db";
+import { lucia } from "../../lib/lucia";
+import { cookies } from "next/headers";
+import { db } from "../db";
 
-export const createTRPCContext = async (opts: {
-  headers: Headers;
-}) => {
+type Context = {
+  db: typeof db;
+  user: {
+    id: string;
+    username: string;
+    role: string;
+  } | null;
+};
+
+export const createTRPCContext = async (): Promise<Context> => {
+  const cookieStore = await cookies();
+  const sessionId = cookieStore.get("auth_session")?.value ?? null;
+
+  let user: Context["user"] = null;
+
+  if (sessionId) {
+    const { user: luciaUser, session } = await lucia.validateSession(sessionId);
+    if (!session) {
+      // Clean up invalid session cookie
+      lucia.createBlankSessionCookie();
+      // We can't easily mutate context cookies here, so we skip it.
+      // But the context user is null.
+    }
+    user = luciaUser as Context["user"];
+  }
+
+
   return {
     db,
-    ...opts,
+    user,
   };
 };
 
-const t = initTRPC.context<typeof createTRPCContext>().create({
+const t = initTRPC.context<Context>().create({
   transformer: superjson,
 });
 

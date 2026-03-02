@@ -1,175 +1,205 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "~/trpc/react";
+import { LatestPost } from "./_components/post";
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const utils = api.useUtils();
-  const { data: tasks } = api.task.getTasks.useQuery();
 
-  const createTask = api.task.createTask.useMutation({
-    onSuccess: () => utils.task.getTasks.invalidate(),
-  });
-
-  const editTask = api.task.editTask.useMutation({
-    onSuccess: () => utils.task.getTasks.invalidate(),
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+  } = api.task.getTasks.useQuery(undefined, {
+    enabled: mounted,
+    retry: false,
   });
 
   const updateTask = api.task.updateTask.useMutation({
-    onSuccess: () => utils.task.getTasks.invalidate(),
+    onSuccess: async () => {
+      await utils.task.getTasks.invalidate();
+    },
   });
 
   const deleteTask = api.task.deleteTask.useMutation({
-    onSuccess: () => utils.task.getTasks.invalidate(),
+    onSuccess: async () => {
+      await utils.task.getTasks.invalidate();
+    },
   });
 
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    priority: "medium",
-  });
+  const tasks = data ?? [];
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const handleSubmit = () => {
-    if (!form.title.trim()) return;
-
-    if (editingId) {
-      editTask.mutate({
-        id: editingId,
-        title: form.title,
-        description: form.description,
-        priority: form.priority as "low" | "medium" | "high",
-      });
-      setEditingId(null);
-    } else {
-      createTask.mutate({
-        title: form.title,
-        description: form.description,
-        priority: form.priority as "low" | "medium" | "high",
-      });
+  useEffect(() => {
+    if (isError && error?.data?.code === "UNAUTHORIZED") {
+      window.location.href = "/login";
     }
+  }, [isError, error]);
 
-    setForm({ title: "", description: "", priority: "medium" });
+  if (!mounted || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center animate-fade-in">
+          <div className="inline-block w-8 h-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-slate-400 text-lg">Loading your tasks...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError && error?.data?.code === "UNAUTHORIZED") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-slate-400 animate-fade-in">Redirecting to login...</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="glass-card p-8 text-center animate-fade-in">
+          <p className="text-red-400 text-lg font-medium">Something went wrong</p>
+          <p className="text-slate-500 mt-2 text-sm">Please try refreshing the page</p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleLogout = async () => {
+    await fetch("/api/logout", { method: "POST" });
+    window.location.href = "/login";
+  };
+
+  const handleStatusChange = (taskId: string, newStatus: "pending" | "in-progress" | "completed") => {
+    updateTask.mutate({ id: taskId, status: newStatus });
+  };
+
+  const handleDelete = (taskId: string) => {
+    deleteTask.mutate({ id: taskId });
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case "in-progress": return "badge badge-in-progress";
+      case "completed": return "badge badge-completed";
+      default: return "badge badge-pending";
+    }
+  };
+
+  const getPriorityClass = (priority: string) => {
+    switch (priority) {
+      case "high": return "priority-high";
+      case "low": return "priority-low";
+      default: return "priority-medium";
+    }
+  };
+
+  const getPriorityIcon = (priority: string) => {
+    switch (priority) {
+      case "high": return "🔴";
+      case "low": return "🟢";
+      default: return "🟡";
+    }
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 p-10">
-      <h1 className="text-4xl font-bold text-center mb-10 tracking-tight">
-         Task Manager
-      </h1>
-
-      
-      <div className="flex flex-wrap justify-center gap-4 mb-10">
-        <input
-          placeholder="Title"
-          value={form.title}
-          onChange={(e) => setForm({ ...form, title: e.target.value })}
-          className="px-4 py-2 rounded-xl border shadow-sm focus:outline-none focus:ring-2 focus:ring-black transition-all"
-        />
-
-        <input
-          placeholder="Description"
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          className="px-4 py-2 rounded-xl border shadow-sm focus:outline-none focus:ring-2 focus:ring-black transition-all"
-        />
-
-        <select
-          value={form.priority}
-          onChange={(e) =>
-            setForm({ ...form, priority: e.target.value })
-          }
-          className="px-4 py-2 rounded-xl border shadow-sm focus:outline-none focus:ring-2 focus:ring-black"
-        >
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-        </select>
-
-        <button
-          onClick={handleSubmit}
-          className="px-6 py-2 rounded-xl bg-black text-white font-semibold hover:scale-105 active:scale-95 transition-all shadow-lg"
-        >
-          {editingId ? "Update" : "Add"}
-        </button>
-      </div>
-
-      
-      <div className="max-w-2xl mx-auto space-y-6">
-        {tasks?.map((task) => (
-          <div
-            key={task.id}
-            className="bg-white rounded-2xl shadow-lg p-6 flex justify-between items-center hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
-          >
-            <div>
-              <h2 className="text-xl font-semibold capitalize">
-                {task.title}
-              </h2>
-
-              <p className="text-gray-500">{task.description}</p>
-
-              <div className="mt-2 flex gap-3 text-sm">
-                <span className="px-3 py-1 rounded-full bg-gray-200">
-                  Status: {task.status}
-                </span>
-
-                <span
-                  className={`px-3 py-1 rounded-full text-white ${
-                    task.priority === "high"
-                      ? "bg-red-500"
-                      : task.priority === "medium"
-                      ? "bg-yellow-500"
-                      : "bg-green-500"
-                  }`}
-                >
-                  {task.priority}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setEditingId(task.id);
-                  setForm({
-                    title: task.title,
-                    description: task.description ?? "",
-                    priority: task.priority,
-                  });
-                }}
-                className="px-4 py-2 rounded-xl bg-yellow-400 text-white font-semibold hover:bg-yellow-500 hover:scale-105 transition-all"
-              >
-                Edit
-              </button>
-
-              <button
-                onClick={() =>
-                  updateTask.mutate({
-                    id: task.id,
-                    status:
-                      task.status === "pending"
-                        ? "in-progress"
-                        : task.status === "in-progress"
-                        ? "completed"
-                        : "pending",
-                  })
-                }
-                className="px-4 py-2 rounded-xl bg-blue-500 text-white font-semibold hover:bg-blue-600 hover:scale-105 transition-all"
-              >
-                Next
-              </button>
-
-              <button
-                onClick={() => deleteTask.mutate({ id: task.id })}
-                className="px-4 py-2 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 hover:scale-105 transition-all"
-              >
-                Delete
-              </button>
-            </div>
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="max-w-3xl mx-auto">
+        {/* HEADER */}
+        <div className="flex justify-between items-center mb-6 sm:mb-8 animate-fade-in">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Task Manager
+            </h1>
+            <p className="text-slate-500 text-xs sm:text-sm mt-1">
+              {tasks.length} task{tasks.length !== 1 ? "s" : ""} total
+            </p>
           </div>
-        ))}
+          <button onClick={handleLogout} className="btn-logout">
+            ← Logout
+          </button>
+        </div>
+
+        {/* CREATE TASK */}
+        <div className="glass-card p-4 sm:p-6 mb-6 sm:mb-8 animate-slide-up delay-100">
+          <h2 className="text-lg font-semibold text-slate-200 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 bg-indigo-400 rounded-full inline-block"></span>
+            Create a New Task
+          </h2>
+          <LatestPost />
+        </div>
+
+        {/* TASK LIST */}
+        <div className="space-y-3 animate-slide-up delay-200">
+          {tasks.length === 0 ? (
+            <div className="glass-card p-8 sm:p-10 text-center">
+              <p className="text-4xl mb-3">📋</p>
+              <p className="text-slate-400 text-base sm:text-lg font-medium">No tasks yet</p>
+              <p className="text-slate-600 text-xs sm:text-sm mt-1">Create your first task above to get started</p>
+            </div>
+          ) : (
+            tasks.map((task, index) => (
+              <div
+                key={task.id}
+                className="glass-card p-4 animate-float-in"
+                style={{ animationDelay: `${index * 60}ms` }}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h3 className={`font-semibold text-slate-100 truncate ${task.status === "completed" ? "line-through opacity-60" : ""}`}>
+                        {task.title}
+                      </h3>
+                      <span className={getStatusBadgeClass(task.status)}>
+                        {task.status}
+                      </span>
+                    </div>
+
+                    {task.description && (
+                      <p className="text-slate-500 text-sm mb-2 truncate">{task.description}</p>
+                    )}
+
+                    <div className="flex items-center gap-3 text-xs text-slate-500">
+                      <span className={`flex items-center gap-1 ${getPriorityClass(task.priority)}`}>
+                        {getPriorityIcon(task.priority)} {task.priority}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <select
+                      value={task.status}
+                      onChange={(e) => handleStatusChange(task.id, e.target.value as "pending" | "in-progress" | "completed")}
+                      className="select-glass text-xs flex-1 sm:flex-none"
+                      disabled={updateTask.isPending}
+                    >
+                      <option value="pending">⏳ Pending</option>
+                      <option value="in-progress">🔄 In Progress</option>
+                      <option value="completed">✅ Completed</option>
+                    </select>
+
+                    <button
+                      onClick={() => handleDelete(task.id)}
+                      className="btn-danger"
+                      disabled={deleteTask.isPending}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
-    </main>
+    </div>
   );
 }

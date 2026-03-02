@@ -1,52 +1,79 @@
 "use client";
 
 import { useState } from "react";
-
-import { api } from "~/trpc/react";
-
+import { api } from "../../trpc/react";
 
 export function LatestPost() {
-  const [latestPost] = api.post.getLatest.useSuspenseQuery();
-
   const utils = api.useUtils();
 
   const [title, setTitle] = useState("");
-  const createPost = api.post.create.useMutation({
+  const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
+
+  const createTask = api.task.createTask.useMutation({
     onSuccess: async () => {
-      await utils.post.invalidate();
+      await utils.task.getTasks.invalidate();
       setTitle("");
+      setDescription("");
+      setPriority("medium");
     },
   });
 
   return (
-    <div className="w-full max-w-xs">
-      {latestPost ? (
-        <p className="truncate">Your most recent post: {latestPost.title}</p>
-      ) : (
-        <p>You have no posts yet.</p>
-      )}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          createPost.mutate({ title });
-        }}
-        className="flex flex-col gap-2"
-      >
-        <input
-          type="text"
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full rounded-full bg-white/10 px-4 py-2 text-white"
-        />
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!title.trim()) return;
+        createTask.mutate({
+          title,
+          description: description || undefined,
+          priority,
+        });
+      }}
+      className="flex flex-col gap-3"
+    >
+      <input
+        type="text"
+        placeholder="What needs to be done?"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        className="input-glass"
+      />
+
+      <input
+        type="text"
+        placeholder="Description (optional)"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        className="input-glass"
+      />
+
+      <div className="flex gap-3">
+        <select
+          value={priority}
+          onChange={(e) => setPriority(e.target.value as "low" | "medium" | "high")}
+          className="select-glass flex-1"
+        >
+          <option value="low">🟢 Low Priority</option>
+          <option value="medium">🟡 Medium Priority</option>
+          <option value="high">🔴 High Priority</option>
+        </select>
+
         <button
           type="submit"
-          className="rounded-full bg-white/10 px-10 py-3 font-semibold transition hover:bg-white/20"
-          disabled={createPost.isPending}
+          className="btn-primary"
+          disabled={createTask.isPending || !title.trim()}
         >
-          {createPost.isPending ? "Submitting..." : "Submit"}
+          {createTask.isPending ? (
+            <span className="flex items-center gap-2">
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
+              Adding...
+            </span>
+          ) : (
+            "＋ Add Task"
+          )}
         </button>
-      </form>
-    </div>
+      </div>
+    </form>
   );
 }

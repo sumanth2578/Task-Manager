@@ -1,4 +1,4 @@
-import { createTRPCRouter } from "~/server/api/trpc";
+import { createTRPCRouter } from "./trpc";
 import { taskRouter } from "./routers/task";
 import { postRouter } from "./routers/post";
 
@@ -7,7 +7,6 @@ export const appRouter = createTRPCRouter({
   post: postRouter,
 });
 
-// ✅ THIS FIXES YOUR ERROR
 export const createCaller = appRouter.createCaller;
 
 export type AppRouter = typeof appRouter;

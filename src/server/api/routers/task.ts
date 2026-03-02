@@ -1,10 +1,14 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "../trpc";
 import { tasks } from "../../db/schema";
-import { eq } from "drizzle-orm";
+import { db } from "../../db";
+import { desc } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 
 export const taskRouter = createTRPCRouter({
 
+  // ================= CREATE =================
   createTask: publicProcedure
     .input(
       z.object({
@@ -14,17 +18,29 @@ export const taskRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.user) {
+        throw new TRPCError({ code: "UNAUTHORIZED" });
+      }
+
       return ctx.db.insert(tasks).values({
         title: input.title,
         description: input.description,
         priority: input.priority,
+        userId: ctx.user.id,
       });
     }),
-  getTasks: publicProcedure
-    .query(async ({ ctx }) => {
-      return ctx.db.select().from(tasks);
-    }),
 
+  // ================= GET =================
+  getTasks: publicProcedure.query(async ({ ctx }) => {
+    if (!ctx.user) {
+      throw new TRPCError({ code: "UNAUTHORIZED" });
+    }
+
+    return await db.query.tasks.findMany({
+      where: eq(tasks.userId, ctx.user.id),
+      orderBy: [desc(tasks.createdAt)],
+    });
+  }),
 
   updateTask: publicProcedure
     .input(
@@ -34,13 +50,17 @@ export const taskRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.user) {
+        throw new TRPCError({ code: "UNAUTHORIZED" });
+      }
+
       return ctx.db
         .update(tasks)
         .set({ status: input.status })
-        .where(eq(tasks.id, input.id));
+        .where(and(eq(tasks.id, input.id), eq(tasks.userId, ctx.user.id)));
     }),
 
-
+  // ================= EDIT =================
   editTask: publicProcedure
     .input(
       z.object({
@@ -51,6 +71,10 @@ export const taskRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.user) {
+        throw new TRPCError({ code: "UNAUTHORIZED" });
+      }
+
       return ctx.db
         .update(tasks)
         .set({
@@ -58,14 +82,19 @@ export const taskRouter = createTRPCRouter({
           description: input.description,
           priority: input.priority,
         })
-        .where(eq(tasks.id, input.id));
+        .where(and(eq(tasks.id, input.id), eq(tasks.userId, ctx.user.id)));
     }),
 
+  // ================= DELETE =================
   deleteTask: publicProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.user) {
+        throw new TRPCError({ code: "UNAUTHORIZED" });
+      }
+
       return ctx.db
         .delete(tasks)
-        .where(eq(tasks.id, input.id));
+        .where(and(eq(tasks.id, input.id), eq(tasks.userId, ctx.user.id)));
     }),
-});
+}); 
