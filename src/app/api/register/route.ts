@@ -11,6 +11,8 @@ export async function POST(req: NextRequest) {
         const body = (await req.json()) as Record<string, unknown>;
         const username = typeof body.username === "string" ? body.username : "";
         const password = typeof body.password === "string" ? body.password : "";
+        const email = typeof body.email === "string" ? body.email : undefined;
+        const phone = typeof body.phone === "string" ? body.phone : undefined;
 
         if (!username || !password || username.length < 3 || password.length < 6) {
             return NextResponse.json(
@@ -35,6 +37,8 @@ export async function POST(req: NextRequest) {
             id: userId,
             username,
             password: hashedPassword,
+            email: email ?? null,
+            phone: phone ?? null,
         });
 
         // Create session

@@ -35,6 +35,8 @@ export default function Home() {
     },
   });
 
+  const sendReminder = api.task.sendReminder.useMutation();
+
   const tasks = data ?? [];
 
   useEffect(() => {
@@ -86,6 +88,27 @@ export default function Home() {
     deleteTask.mutate({ id: taskId });
   };
 
+  const handleRemind = (taskId: string) => {
+    sendReminder.mutate(
+      { id: taskId },
+      {
+        onSuccess: (result) => {
+          const parts = [];
+          if (result.email) parts.push("📧 Email");
+          if (result.whatsapp) parts.push("💬 WhatsApp");
+          if (parts.length > 0) {
+            alert(`✅ Reminder sent via ${parts.join(" & ")}!`);
+          } else {
+            alert("⚠️ No reminders sent. Check your email/phone in profile.");
+          }
+        },
+        onError: (err) => {
+          alert(`❌ ${err.message}`);
+        },
+      }
+    );
+  };
+
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case "in-progress": return "badge badge-in-progress";
@@ -108,6 +131,27 @@ export default function Home() {
       case "low": return "🟢";
       default: return "🟡";
     }
+  };
+
+  const formatDueDate = (dateStr: string | Date | null) => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = date.getTime() - now.getTime();
+    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    const formatted = date.toLocaleString("en-IN", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    if (diffMs < 0) return { text: `Overdue · ${formatted}`, className: "text-red-400" };
+    if (diffHrs < 1) return { text: `Due in ${diffMins}m · ${formatted}`, className: "text-orange-400" };
+    if (diffHrs < 24) return { text: `Due in ${diffHrs}h · ${formatted}`, className: "text-yellow-400" };
+    return { text: `📅 ${formatted}`, className: "text-slate-500" };
   };
 
   return (
@@ -146,57 +190,74 @@ export default function Home() {
               <p className="text-slate-600 text-xs sm:text-sm mt-1">Create your first task above to get started</p>
             </div>
           ) : (
-            tasks.map((task, index) => (
-              <div
-                key={task.id}
-                className="glass-card p-4 animate-float-in"
-                style={{ animationDelay: `${index * 60}ms` }}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h3 className={`font-semibold text-slate-100 truncate ${task.status === "completed" ? "line-through opacity-60" : ""}`}>
-                        {task.title}
-                      </h3>
-                      <span className={getStatusBadgeClass(task.status)}>
-                        {task.status}
-                      </span>
+            tasks.map((task, index) => {
+              const dueInfo = formatDueDate(task.dueDate);
+              return (
+                <div
+                  key={task.id}
+                  className="glass-card p-4 animate-float-in"
+                  style={{ animationDelay: `${index * 60}ms` }}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 className={`font-semibold text-slate-100 truncate ${task.status === "completed" ? "line-through opacity-60" : ""}`}>
+                          {task.title}
+                        </h3>
+                        <span className={getStatusBadgeClass(task.status)}>
+                          {task.status}
+                        </span>
+                      </div>
+
+                      {task.description && (
+                        <p className="text-slate-500 text-sm mb-2 truncate">{task.description}</p>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                        <span className={`flex items-center gap-1 ${getPriorityClass(task.priority)}`}>
+                          {getPriorityIcon(task.priority)} {task.priority}
+                        </span>
+                        {dueInfo && (
+                          <span className={`flex items-center gap-1 ${dueInfo.className}`}>
+                            ⏰ {dueInfo.text}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {task.description && (
-                      <p className="text-slate-500 text-sm mb-2 truncate">{task.description}</p>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleRemind(task.id)}
+                        className="btn-remind"
+                        disabled={sendReminder.isPending}
+                        title="Send reminder via email & WhatsApp"
+                      >
+                        {sendReminder.isPending ? "⏳" : "🔔"}
+                      </button>
 
-                    <div className="flex items-center gap-3 text-xs text-slate-500">
-                      <span className={`flex items-center gap-1 ${getPriorityClass(task.priority)}`}>
-                        {getPriorityIcon(task.priority)} {task.priority}
-                      </span>
+                      <select
+                        value={task.status}
+                        onChange={(e) => handleStatusChange(task.id, e.target.value as "pending" | "in-progress" | "completed")}
+                        className="select-glass text-xs flex-1 sm:flex-none"
+                        disabled={updateTask.isPending}
+                      >
+                        <option value="pending">⏳ Pending</option>
+                        <option value="in-progress">🔄 In Progress</option>
+                        <option value="completed">✅ Completed</option>
+                      </select>
+
+                      <button
+                        onClick={() => handleDelete(task.id)}
+                        className="btn-danger"
+                        disabled={deleteTask.isPending}
+                      >
+                        🗑
+                      </button>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <select
-                      value={task.status}
-                      onChange={(e) => handleStatusChange(task.id, e.target.value as "pending" | "in-progress" | "completed")}
-                      className="select-glass text-xs flex-1 sm:flex-none"
-                      disabled={updateTask.isPending}
-                    >
-                      <option value="pending">⏳ Pending</option>
-                      <option value="in-progress">🔄 In Progress</option>
-                      <option value="completed">✅ Completed</option>
-                    </select>
-
-                    <button
-                      onClick={() => handleDelete(task.id)}
-                      className="btn-danger"
-                      disabled={deleteTask.isPending}
-                    >
-                      🗑
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

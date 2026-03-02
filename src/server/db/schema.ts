@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   varchar,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -21,6 +22,10 @@ export const users = pgTable("user", {
   password: varchar("password", { length: 255 })
     .notNull(),
 
+  email: varchar("email", { length: 255 }),
+
+  phone: varchar("phone", { length: 20 }),
+
   role: varchar("role", { length: 50 })
     .default("user")
     .notNull(),
@@ -28,7 +33,7 @@ export const users = pgTable("user", {
   createdAt: timestamp("created_at")
     .defaultNow()
     .notNull(),
-  
+
 });
 
 /* =====================
@@ -65,6 +70,12 @@ export const tasks = pgTable("tasks", {
 
   priority: text("priority")
     .default("medium")
+    .notNull(),
+
+  dueDate: timestamp("due_date"),
+
+  reminderSent: boolean("reminder_sent")
+    .default(false)
     .notNull(),
 
   userId: varchar("user_id", { length: 255 })

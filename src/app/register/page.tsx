@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 export default function RegisterPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -17,7 +19,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, email, phone }),
       });
       if (res.ok) {
         router.push("/");
@@ -42,9 +44,9 @@ export default function RegisterPage() {
           <p className="text-slate-500 text-sm mt-1">Join the task manager</p>
         </div>
 
-        <form onSubmit={handleRegister} className="flex flex-col gap-4">
+        <form onSubmit={handleRegister} className="flex flex-col gap-3">
           <div>
-            <label className="text-xs text-slate-400 mb-1 block">Username</label>
+            <label className="text-xs text-slate-400 mb-1 block">Username *</label>
             <input
               type="text"
               placeholder="Choose a username (min 3 chars)"
@@ -56,7 +58,7 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-slate-400 mb-1 block">Password</label>
+            <label className="text-xs text-slate-400 mb-1 block">Password *</label>
             <input
               type="password"
               placeholder="Choose a password (min 6 chars)"
@@ -65,6 +67,26 @@ export default function RegisterPage() {
               className="input-glass"
               required
               minLength={6}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 mb-1 block">Email (for reminders)</label>
+            <input
+              type="email"
+              placeholder="your@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input-glass"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 mb-1 block">Phone (for WhatsApp reminders)</label>
+            <input
+              type="tel"
+              placeholder="+91XXXXXXXXXX"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="input-glass"
             />
           </div>
 

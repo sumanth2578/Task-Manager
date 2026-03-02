@@ -9,6 +9,7 @@ export function LatestPost() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
+  const [dueDate, setDueDate] = useState("");
 
   const createTask = api.task.createTask.useMutation({
     onSuccess: async () => {
@@ -16,6 +17,7 @@ export function LatestPost() {
       setTitle("");
       setDescription("");
       setPriority("medium");
+      setDueDate("");
     },
   });
 
@@ -28,6 +30,7 @@ export function LatestPost() {
           title,
           description: description || undefined,
           priority,
+          dueDate: dueDate || undefined,
         });
       }}
       className="flex flex-col gap-3"
@@ -48,7 +51,7 @@ export function LatestPost() {
         className="input-glass"
       />
 
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <select
           value={priority}
           onChange={(e) => setPriority(e.target.value as "low" | "medium" | "high")}
@@ -59,21 +62,29 @@ export function LatestPost() {
           <option value="high">🔴 High Priority</option>
         </select>
 
-        <button
-          type="submit"
-          className="btn-primary"
-          disabled={createTask.isPending || !title.trim()}
-        >
-          {createTask.isPending ? (
-            <span className="flex items-center gap-2">
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
-              Adding...
-            </span>
-          ) : (
-            "＋ Add Task"
-          )}
-        </button>
+        <input
+          type="datetime-local"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          className="input-glass flex-1"
+          title="Due date & time (for reminders)"
+        />
       </div>
+
+      <button
+        type="submit"
+        className="btn-primary"
+        disabled={createTask.isPending || !title.trim()}
+      >
+        {createTask.isPending ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
+            Adding...
+          </span>
+        ) : (
+          "＋ Add Task"
+        )}
+      </button>
     </form>
   );
 }
